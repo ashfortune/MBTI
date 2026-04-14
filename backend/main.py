@@ -27,11 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 모델 경로 설정
-BERT_MODEL_DIR = "models/bert_mbti_ver2"
 
 # 싱글톤 패턴으로 서비스 초기화
-classifier = MBTIClassifier(BERT_MODEL_DIR)
+classifier = MBTIClassifier()
 llm_service = LLMService(model_name="gemma4:latest")
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
