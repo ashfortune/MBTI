@@ -3,7 +3,7 @@ import re
 import numpy as np
 import os
 from dotenv import load_dotenv
-from transformers import AutoTokenizer, TFDistilBertForSequenceClassification
+from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
 from huggingface_hub import snapshot_download
 
 # .env 파일 활성화
@@ -43,7 +43,7 @@ class MBTIClassifier:
             print(f"DEBUG: '{name.upper()}' 전문 모델 로딩 중... ({model_full_path})")
             
             # 서버 하드디스크에서 바로 읽으므로 경로 오류가 날 수 없습니다.
-            self.models[name] = TFDistilBertForSequenceClassification.from_pretrained(
+            self.models[name] = TFAutoModelForSequenceClassification.from_pretrained(
                 model_full_path, 
                 from_pt=True,
                 use_safetensors=True

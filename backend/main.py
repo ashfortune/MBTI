@@ -27,6 +27,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "CommuniKate API is running"}
+
+@app.get("/api/health")
+async def health():
+    return {"status": "healthy"}
 
 # 싱글톤 패턴으로 서비스 초기화
 classifier = MBTIClassifier()

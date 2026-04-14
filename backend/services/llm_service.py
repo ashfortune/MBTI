@@ -23,10 +23,14 @@ logger = logging.getLogger("LLMService")
 
 class LLMService:
     def __init__(self, model_name: str = "gemma4:latest"):
-        self.provider = os.getenv("LLM_PROVIDER", "ollama").lower()
+        # 환경 변수 우선순위: SPACE_ID가 있으면 Hugging Face 환경으로 간주하고 google을 기본값으로 사용
+        is_hf_space = os.getenv("SPACE_ID") is not None
+        default_provider = "google" if is_hf_space else "ollama"
+        
+        self.provider = os.getenv("LLM_PROVIDER", default_provider).lower()
         
         # Ollama 설정
-        self.ollama_url = "http://localhost:11434/api/generate"
+        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
         self.ollama_model = model_name
         
         # Google AI 설정
@@ -34,16 +38,23 @@ class LLMService:
         self.google_model = os.getenv("GOOGLE_MODEL_NAME", "models/gemma-4-31b")
         
         self.client = None
-        if self.provider == "google" and self.google_api_key:
-            try:
-                self.client = genai.Client(api_key=self.google_api_key)
-                logger.info(f"Gemma 4 엔진 초기화 완료 ({self.google_model})")
-            except Exception as e:
-                logger.error(f"Gemma 4 엔진 초기화 실패: {e}")
-                self.provider = "ollama"
+        if self.provider == "google":
+            if not self.google_api_key:
+                logger.error("GOOGLE_API_KEY가 설정되지 않았습니다. LLM 기능을 사용할 수 없습니다.")
+                # 배포 환경에서 키가 없으면 심각한 오류이므로 로컬(Ollama)로 무작정 넘기지 않고 경고 유지
+            else:
+                try:
+                    self.client = genai.Client(api_key=self.google_api_key)
+                    logger.info(f"Gemma 4 엔진 초기화 완료 ({self.google_model})")
+                except Exception as e:
+                    logger.error(f"Gemma 4 엔진 초기화 실패: {e}")
+                    if not is_hf_space:
+                        self.provider = "ollama"
         
         if self.provider == "ollama":
             logger.info(f"Ollama 모드로 작동 중 ({self.ollama_model})")
+        elif self.provider == "google" and not self.client:
+            logger.warning("Google AI가 선택되었으나 클라이언트를 초기화할 수 없습니다. API 키를 확인해 주세요.")
 
     async def generate_response(self, user_mbti, target_mbti, situation, relationship, vibe, user_input):
         """상대방의 말에 대한 최적의 답변과 반응 예측 생성"""
