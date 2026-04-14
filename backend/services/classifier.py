@@ -4,61 +4,50 @@ import numpy as np
 import os
 from dotenv import load_dotenv
 from transformers import AutoTokenizer, TFDistilBertForSequenceClassification
+from huggingface_hub import snapshot_download
 
 # .env 파일 활성화
 load_dotenv()
 
 class MBTIClassifier:
     def __init__(self):
-        from huggingface_hub import list_repo_files
-
-        try:
-            print(f"DEBUG: 저장소 '{self.base_path}'의 파일 목록 확인 중...")
-            files = list_repo_files(repo_id=self.base_path, repo_type="model")
-            print(f"DEBUG: 실제 파일 목록: {files}")
-        except Exception as e:
-            print(f"DEBUG: 파일 목록을 가져오지 못함: {e}")
-        # 환경 변수에서 경로 가져오기 (기본값은 HF 저장소 ID)
-        self.base_path = os.getenv("MODEL_PATH", "ashfortune/communiKate")
-        
-        # 해당 경로가 실제 로컬 폴더인지 확인
-        self.is_local = os.path.isdir(self.base_path)
+        self.repo_id = os.getenv("MODEL_PATH", "ashfortune/communiKate")
         self.version_folder = "bert_mbti_ver2"
+        
+        # 1. 모델 강제 다운로드 (핵심)
+        # 만약 진짜 내 컴퓨터(Mac)라면 다운로드하지 않고 넘어갑니다.
+        if not os.path.isdir(self.repo_id):
+            print(f"DEBUG: [HUGGINGFACE HUB] 모델 파일을 서버로 강제 다운로드 합니다... ({self.repo_id})")
+            # 저장소 전체를 다운로드하고, 그 임시 로컬 경로를 반환받습니다.
+            local_download_path = snapshot_download(repo_id=self.repo_id, repo_type="model")
+            self.base_path = os.path.join(local_download_path, self.version_folder)
+        else:
+            print(f"DEBUG: [LOCAL] 내 컴퓨터의 모델을 사용합니다.")
+            self.base_path = self.repo_id if self.version_folder in self.repo_id else os.path.join(self.repo_id, self.version_folder)
 
-        mode_str = "LOCAL" if self.is_local else "HUGGINGFACE HUB"
-        print(f"DEBUG: [{mode_str} MODE] 엔진 가동 중... ({self.base_path})")
+        print(f"DEBUG: 최종 로드 경로 -> {self.base_path}")
         
         self.axis_map = {'ie': 'mbti_model_ie', 'ns': 'mbti_model_ns', 'tf': 'mbti_model_tf', 'jp': 'mbti_model_jp'}
         self.model_names = list(self.axis_map.keys())
         self.models = {}
         
-        # 1. 토크나이저 로드
+        # 2. 토크나이저 로드 (이제 무조건 로컬 폴더에서 읽음)
         first_sub = self.axis_map[self.model_names[0]]
+        tokenizer_path = os.path.join(self.base_path, first_sub)
+        print(f"DEBUG: 토크나이저 로딩 중... ({tokenizer_path})")
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         
-        if self.is_local:
-            # 로컬 경로 처리
-            self.tokenizer = AutoTokenizer.from_pretrained(os.path.join(self.base_path, first_sub))
-        else:
-            # [수정] 배포 경로: 직접 슬래시(/)로 연결하여 경로 명시
-            hf_subfolder = f"{self.version_folder}/{first_sub}"
-            self.tokenizer = AutoTokenizer.from_pretrained(self.base_path, subfolder=hf_subfolder)
-        
-        # 2. 4개의 독립 모델 로드
+        # 3. 4개의 독립 모델 로드 (이제 무조건 로컬 폴더에서 읽음)
         for name, subfolder in self.axis_map.items():
-            print(f"DEBUG: '{name.upper()}' 전문 모델 로딩 중...")
+            model_full_path = os.path.join(self.base_path, subfolder)
+            print(f"DEBUG: '{name.upper()}' 전문 모델 로딩 중... ({model_full_path})")
             
-            if self.is_local:
-                model_full_path = os.path.join(self.base_path, subfolder)
-                self.models[name] = TFDistilBertForSequenceClassification.from_pretrained(model_full_path)
-            else:
-                # [수정] use_safetensors=True 옵션 추가 및 경로 문자열 처리
-                hf_subfolder = f"{self.version_folder}/{subfolder}"
-                self.models[name] = TFDistilBertForSequenceClassification.from_pretrained(
-                    self.base_path, 
-                    subfolder=hf_subfolder, 
-                    from_pt=True,         # PyTorch 가중치 변환
-                    use_safetensors=True  # [추가] safetensors 파일 우선 사용
-                )
+            # 서버 하드디스크에서 바로 읽으므로 경로 오류가 날 수 없습니다.
+            self.models[name] = TFDistilBertForSequenceClassification.from_pretrained(
+                model_full_path, 
+                from_pt=True,
+                use_safetensors=True
+            )
             
         self.labels = {'ie': ['E', 'I'], 'ns': ['N', 'S'], 'tf': ['F', 'T'], 'jp': ['J', 'P']}
         self.all_types = [
