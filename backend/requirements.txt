@@ -5,8 +5,11 @@ pydantic
 httpx
 pillow
 tensorflow
-transformers==4.48.3
 tf-keras
+# [추가] safetensors 파일을 읽기 위해 반드시 필요합니다.
+safetensors
+# [유지] 버전은 4.48.3 그대로 사용하셔도 충분히 최신입니다.
+transformers==4.48.3
 torch
 numpy<2
 google-genai
