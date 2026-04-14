@@ -2,7 +2,7 @@ import tensorflow as tf
 import re
 import numpy as np
 import os
-from dotenv import load_dotenv # [추가] 환경 변수 로드용
+from dotenv import load_dotenv
 from transformers import AutoTokenizer, TFDistilBertForSequenceClassification
 
 # .env 파일 활성화
@@ -13,12 +13,16 @@ class MBTIClassifier:
         """
         환경 변수 MODEL_PATH를 읽어 로컬 폴더 또는 HF Hub에서 모델을 자동 로드합니다.
         """
-        # [수정] 환경 변수에서 경로 가져오기 (기본값은 HF 저장소)
+        # 환경 변수에서 경로 가져오기 (기본값은 HF 저장소 ID)
         self.base_path = os.getenv("MODEL_PATH", "ashfortune/communiKate")
         
-        # [수정] 해당 경로가 실제 로컬 폴더인지 확인
+        # 해당 경로가 실제 로컬 폴더인지 확인
         self.is_local = os.path.isdir(self.base_path)
         
+        # [수정] 웹 배포 시 저장소 내부의 중간 폴더 경로 설정
+        # 로컬 폴더 경로(예: ./models/bert_mbti_ver2)에 이미 버전 폴더가 포함되어 있다면 로컬에선 무시합니다.
+        self.version_folder = "bert_mbti_ver2"
+
         mode_str = "LOCAL" if self.is_local else "HUGGINGFACE HUB"
         print(f"DEBUG: [{mode_str} MODE] 엔진 가동 중... ({self.base_path})")
         
@@ -36,11 +40,12 @@ class MBTIClassifier:
         print(f"DEBUG: 토크나이저 로딩 중...")
         
         if self.is_local:
-            # 로컬: 폴더 경로 조인
+            # 로컬: ./models/bert_mbti_ver2/mbti_model_ie
             self.tokenizer = AutoTokenizer.from_pretrained(os.path.join(self.base_path, first_sub))
         else:
-            # 배포: repo_id와 subfolder 사용
-            self.tokenizer = AutoTokenizer.from_pretrained(self.base_path, subfolder=first_sub)
+            # [수정] 배포: ashfortune/communiKate 안의 'bert_mbti_ver2/mbti_model_ie'
+            hf_subfolder = os.path.join(self.version_folder, first_sub)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.base_path, subfolder=hf_subfolder)
         
         # 2. 4개의 독립 모델 로드
         for name, subfolder in self.axis_map.items():
@@ -51,10 +56,11 @@ class MBTIClassifier:
                 model_full_path = os.path.join(self.base_path, subfolder)
                 self.models[name] = TFDistilBertForSequenceClassification.from_pretrained(model_full_path)
             else:
-                # [배포 모드]
+                # [수정] [배포 모드] 중간 폴더(bert_mbti_ver2)를 경로에 추가
+                hf_subfolder = os.path.join(self.version_folder, subfolder)
                 self.models[name] = TFDistilBertForSequenceClassification.from_pretrained(
                     self.base_path, 
-                    subfolder=subfolder, 
+                    subfolder=hf_subfolder, 
                     from_pt=True # PyTorch 가중치 변환 허용
                 )
             
