@@ -27,20 +27,20 @@ export default function MbtiChart({ data }: MbtiChartProps) {
           margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
         >
           <XAxis type="number" domain={[0, 100]} hide />
-          <YAxis 
-            dataKey="name" 
-            type="category" 
-            tick={{ fill: 'currentColor', fontSize: 12 }} 
+          <YAxis
+            dataKey="name"
+            type="category"
+            tick={{ fill: 'currentColor', fontSize: 12 }}
             width={40}
           />
-          <Tooltip 
+          <Tooltip
             cursor={{ fill: 'transparent' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
                   <div className="bg-white dark:bg-slate-800 p-2 border border-slate-200 dark:border-slate-700 rounded shadow-sm text-xs">
                     <p className="font-bold">{payload[0].payload.label}</p>
-                    <p>{`${payload[0].value?.toFixed(1)}%`}</p>
+                    <p>{`${Number(payload[0].value || 0).toFixed(1)}%`}</p>
                   </div>
                 );
               }
