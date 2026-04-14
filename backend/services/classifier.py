@@ -10,6 +10,14 @@ load_dotenv()
 
 class MBTIClassifier:
     def __init__(self):
+        from huggingface_hub import list_repo_files
+
+        try:
+            print(f"DEBUG: 저장소 '{self.base_path}'의 파일 목록 확인 중...")
+            files = list_repo_files(repo_id=self.base_path, repo_type="model")
+            print(f"DEBUG: 실제 파일 목록: {files}")
+        except Exception as e:
+            print(f"DEBUG: 파일 목록을 가져오지 못함: {e}")
         # 환경 변수에서 경로 가져오기 (기본값은 HF 저장소 ID)
         self.base_path = os.getenv("MODEL_PATH", "ashfortune/communiKate")
         
