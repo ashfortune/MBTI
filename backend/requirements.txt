@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+httpx
+pillow
+tensorflow
+transformers==4.48.3
+tf-keras
+torch
+numpy<2
+google-genai
+python-dotenv
+scikit-learn
